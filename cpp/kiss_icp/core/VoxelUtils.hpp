@@ -30,14 +30,14 @@
 namespace kiss_icp {
 
 using Voxel = Eigen::Vector3i;
-inline Voxel PointToVoxel(const Eigen::Vector3d &point, const double voxel_size) {
+inline Voxel PointToVoxel(const Eigen::Vector4d &point, const double voxel_size) {
     return Voxel(static_cast<int>(std::floor(point.x() / voxel_size)),
                  static_cast<int>(std::floor(point.y() / voxel_size)),
                  static_cast<int>(std::floor(point.z() / voxel_size)));
 }
 
 /// Voxelize a point cloud keeping the original coordinates
-std::vector<Eigen::Vector3d> VoxelDownsample(const std::vector<Eigen::Vector3d> &frame,
+std::vector<Eigen::Vector4d> VoxelDownsample(const std::vector<Eigen::Vector4d> &frame,
                                              const double voxel_size);
 
 }  // namespace kiss_icp

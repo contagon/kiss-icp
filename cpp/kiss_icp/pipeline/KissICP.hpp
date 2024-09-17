@@ -54,7 +54,7 @@ struct KISSConfig {
 
 class KissICP {
 public:
-    using Vector3dVector = std::vector<Eigen::Vector3d>;
+    using Vector3dVector = std::vector<Eigen::Vector4d>;
     using Vector3dVectorTuple = std::tuple<Vector3dVector, Vector3dVector>;
 
 public:
@@ -66,12 +66,12 @@ public:
           adaptive_threshold_(config.initial_threshold, config.min_motion_th, config.max_range) {}
 
 public:
-    Vector3dVectorTuple RegisterFrame(const std::vector<Eigen::Vector3d> &frame);
-    Vector3dVectorTuple RegisterFrame(const std::vector<Eigen::Vector3d> &frame,
+    Vector3dVectorTuple RegisterFrame(const std::vector<Eigen::Vector4d> &frame);
+    Vector3dVectorTuple RegisterFrame(const std::vector<Eigen::Vector4d> &frame,
                                       const std::vector<double> &timestamps);
-    Vector3dVectorTuple Voxelize(const std::vector<Eigen::Vector3d> &frame) const;
+    Vector3dVectorTuple Voxelize(const std::vector<Eigen::Vector4d> &frame) const;
 
-    std::vector<Eigen::Vector3d> LocalMap() const { return local_map_.Pointcloud(); };
+    std::vector<Eigen::Vector4d> LocalMap() const { return local_map_.Pointcloud(); };
 
     const VoxelHashMap &VoxelMap() const { return local_map_; };
     VoxelHashMap &VoxelMap() { return local_map_; };

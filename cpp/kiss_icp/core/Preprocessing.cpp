@@ -30,10 +30,10 @@
 #include <vector>
 
 namespace kiss_icp {
-std::vector<Eigen::Vector3d> Preprocess(const std::vector<Eigen::Vector3d> &frame,
+std::vector<Eigen::Vector4d> Preprocess(const std::vector<Eigen::Vector4d> &frame,
                                         double max_range,
                                         double min_range) {
-    std::vector<Eigen::Vector3d> inliers;
+    std::vector<Eigen::Vector4d> inliers;
     std::copy_if(frame.cbegin(), frame.cend(), std::back_inserter(inliers), [&](const auto &pt) {
         const double norm = pt.norm();
         return norm < max_range && norm > min_range;

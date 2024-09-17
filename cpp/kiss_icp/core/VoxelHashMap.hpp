@@ -43,16 +43,16 @@ struct VoxelHashMap {
 
     inline void Clear() { map_.clear(); }
     inline bool Empty() const { return map_.empty(); }
-    void Update(const std::vector<Eigen::Vector3d> &points, const Eigen::Vector3d &origin);
-    void Update(const std::vector<Eigen::Vector3d> &points, const Sophus::SE3d &pose);
-    void AddPoints(const std::vector<Eigen::Vector3d> &points);
+    void Update(const std::vector<Eigen::Vector4d> &points, const Eigen::Vector3d &origin);
+    void Update(const std::vector<Eigen::Vector4d> &points, const Sophus::SE3d &pose);
+    void AddPoints(const std::vector<Eigen::Vector4d> &points);
     void RemovePointsFarFromLocation(const Eigen::Vector3d &origin);
-    std::vector<Eigen::Vector3d> Pointcloud() const;
-    std::tuple<Eigen::Vector3d, double> GetClosestNeighbor(const Eigen::Vector3d &query) const;
+    std::vector<Eigen::Vector4d> Pointcloud() const;
+    std::tuple<Eigen::Vector4d, double> GetClosestNeighbor(const Eigen::Vector4d &query) const;
 
     double voxel_size_;
     double max_distance_;
     unsigned int max_points_per_voxel_;
-    tsl::robin_map<Voxel, std::vector<Eigen::Vector3d>> map_;
+    tsl::robin_map<Voxel, std::vector<Eigen::Vector4d>> map_;
 };
 }  // namespace kiss_icp

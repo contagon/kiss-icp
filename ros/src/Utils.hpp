@@ -158,7 +158,7 @@ inline std::unique_ptr<PointCloud2> CreatePointCloud2Msg(const size_t n_points,
     offset = addPointField(*cloud_msg, "x", 1, PointField::FLOAT32, offset);
     offset = addPointField(*cloud_msg, "y", 1, PointField::FLOAT32, offset);
     offset = addPointField(*cloud_msg, "z", 1, PointField::FLOAT32, offset);
-    offset += sizeOfPointField(PointField::FLOAT32);
+    offset = addPointField(*cloud_msg, "intensity", 1, PointField::FLOAT32, offset);
     if (timestamp) {
         // assuming timestamp on a velodyne fashion for now (between 0.0 and 1.0)
         offset = addPointField(*cloud_msg, "time", 1, PointField::FLOAT64, offset);
@@ -173,15 +173,17 @@ inline std::unique_ptr<PointCloud2> CreatePointCloud2Msg(const size_t n_points,
     return cloud_msg;
 }
 
-inline void FillPointCloud2XYZ(const std::vector<Eigen::Vector3d> &points, PointCloud2 &msg) {
+inline void FillPointCloud2XYZI(const std::vector<Eigen::Vector4d> &points, PointCloud2 &msg) {
     sensor_msgs::PointCloud2Iterator<float> msg_x(msg, "x");
     sensor_msgs::PointCloud2Iterator<float> msg_y(msg, "y");
     sensor_msgs::PointCloud2Iterator<float> msg_z(msg, "z");
-    for (size_t i = 0; i < points.size(); i++, ++msg_x, ++msg_y, ++msg_z) {
-        const Eigen::Vector3d &point = points[i];
+    sensor_msgs::PointCloud2Iterator<float> msg_i(msg, "intensity");
+    for (size_t i = 0; i < points.size(); i++, ++msg_x, ++msg_y, ++msg_z, ++msg_i) {
+        const Eigen::Vector4d &point = points[i];
         *msg_x = point.x();
         *msg_y = point.y();
         *msg_z = point.z();
+        *msg_i = point.w();
     }
 }
 
@@ -200,40 +202,41 @@ inline std::vector<double> GetTimestamps(const PointCloud2 msg) {
     return timestamps;
 }
 
-inline std::vector<Eigen::Vector3d> PointCloud2ToEigen(const PointCloud2 msg) {
-    std::vector<Eigen::Vector3d> points;
+inline std::vector<Eigen::Vector4d> PointCloud2ToEigen(const PointCloud2 msg) {
+    std::vector<Eigen::Vector4d> points;
     points.reserve(msg.height * msg.width);
     sensor_msgs::PointCloud2ConstIterator<float> msg_x(msg, "x");
     sensor_msgs::PointCloud2ConstIterator<float> msg_y(msg, "y");
     sensor_msgs::PointCloud2ConstIterator<float> msg_z(msg, "z");
-    for (size_t i = 0; i < msg.height * msg.width; ++i, ++msg_x, ++msg_y, ++msg_z) {
-        points.emplace_back(*msg_x, *msg_y, *msg_z);
+    sensor_msgs::PointCloud2ConstIterator<float> msg_i(msg, "intensity");
+    for (size_t i = 0; i < msg.height * msg.width; ++i, ++msg_x, ++msg_y, ++msg_z, ++msg_i) {
+        points.emplace_back(*msg_x, *msg_y, *msg_z, *msg_i);
     }
     return points;
 }
 
-inline std::unique_ptr<PointCloud2> EigenToPointCloud2(const std::vector<Eigen::Vector3d> &points,
+inline std::unique_ptr<PointCloud2> EigenToPointCloud2(const std::vector<Eigen::Vector4d> &points,
                                                        const Header &header) {
     auto msg = CreatePointCloud2Msg(points.size(), header);
-    FillPointCloud2XYZ(points, *msg);
+    FillPointCloud2XYZI(points, *msg);
     return msg;
 }
 
-inline std::unique_ptr<PointCloud2> EigenToPointCloud2(const std::vector<Eigen::Vector3d> &points,
+inline std::unique_ptr<PointCloud2> EigenToPointCloud2(const std::vector<Eigen::Vector4d> &points,
                                                        const Sophus::SE3d &T,
                                                        const Header &header) {
-    std::vector<Eigen::Vector3d> points_t;
+    std::vector<Eigen::Vector4d> points_t;
     points_t.resize(points.size());
     std::transform(points.cbegin(), points.cend(), points_t.begin(),
                    [&](const auto &point) { return T * point; });
     return EigenToPointCloud2(points_t, header);
 }
 
-inline std::unique_ptr<PointCloud2> EigenToPointCloud2(const std::vector<Eigen::Vector3d> &points,
+inline std::unique_ptr<PointCloud2> EigenToPointCloud2(const std::vector<Eigen::Vector4d> &points,
                                                        const std::vector<double> &timestamps,
                                                        const Header &header) {
     auto msg = CreatePointCloud2Msg(points.size(), header, true);
-    FillPointCloud2XYZ(points, *msg);
+    FillPointCloud2XYZI(points, *msg);
     FillPointCloud2Timestamp(timestamps, *msg);
     return msg;
 }

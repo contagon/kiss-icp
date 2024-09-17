@@ -28,7 +28,7 @@
 namespace kiss_icp {
 
 /// Crop the frame with max/min ranges
-std::vector<Eigen::Vector3d> Preprocess(const std::vector<Eigen::Vector3d> &frame,
+std::vector<Eigen::Vector4d> Preprocess(const std::vector<Eigen::Vector4d> &frame,
                                         double max_range,
                                         double min_range);
 }  // namespace kiss_icp
