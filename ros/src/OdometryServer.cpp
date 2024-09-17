@@ -129,8 +129,8 @@ OdometryServer::OdometryServer(const rclcpp::NodeOptions &options)
     RCLCPP_INFO(this->get_logger(), "KISS-ICP ROS 2 odometry node initialized");
 }
 
-void OdometryServer::RegisterFrame(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg) {
-    const auto cloud_frame_id = msg->header.frame_id;
+void OdometryServer::RegisterFrame(const sensor_msgs::msg::PointCloud2 &msg) {
+    const auto cloud_frame_id = msg.header.frame_id;
     const auto points = PointCloud2ToEigen(msg);
     const auto timestamps = GetTimestamps(msg);
 
@@ -141,10 +141,10 @@ void OdometryServer::RegisterFrame(const sensor_msgs::msg::PointCloud2::ConstSha
     const Sophus::SE3d kiss_pose = kiss_icp_->pose();
 
     // Spit the current estimated pose to ROS msgs handling the desired target frame
-    PublishOdometry(kiss_pose, msg->header);
+    PublishOdometry(kiss_pose, msg.header);
     // Publishing these clouds is a bit costly, so do it only if we are debugging
     if (publish_debug_clouds_) {
-        PublishClouds(frame, keypoints, msg->header);
+        PublishClouds(frame, keypoints, msg.header);
     }
 }
 
