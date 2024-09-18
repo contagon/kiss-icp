@@ -52,7 +52,12 @@ inline double square(double x) { return x * x; }
 
 void TransformPoints(const Sophus::SE3d &T, std::vector<Eigen::Vector4d> &points) {
     std::transform(points.cbegin(), points.cend(), points.begin(),
-                   [&](const auto &point) { return T * point; });
+                   [&](const Eigen::Vector4d &point) { 
+            Eigen::Vector4d out = point;
+            out.head<3>() = T * point.head<3>();
+            return out; 
+        }
+    );
 }
 
 Correspondences DataAssociation(const std::vector<Eigen::Vector4d> &points,
