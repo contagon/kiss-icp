@@ -42,7 +42,8 @@ std::vector<Eigen::Vector4d> DeSkewScan(const std::vector<Eigen::Vector4d> &fram
     // TODO(All): This tbb execution is ignoring the max_n_threads config value
     tbb::parallel_for(size_t(0), frame.size(), [&](size_t i) {
         const auto motion = Sophus::SE3d::exp((timestamps[i] - mid_pose_timestamp) * delta_pose);
-        corrected_frame[i] = motion * frame[i];
+        corrected_frame[i].head<3>() = motion * frame[i].head<3>();
+        corrected_frame[i].w() = frame[i].w();
     });
     return corrected_frame;
 }

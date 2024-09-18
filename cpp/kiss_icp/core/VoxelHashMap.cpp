@@ -56,16 +56,17 @@ std::tuple<Eigen::Vector4d, double> VoxelHashMap::GetClosestNeighbor(
     // Find the nearest neighbor
     Eigen::Vector4d closest_neighbor = Eigen::Vector4d::Zero();
     double closest_distance = std::numeric_limits<double>::max();
+    // TODO: Is there going to be some problems with for_each with a shared variable?
     std::for_each(query_voxels.cbegin(), query_voxels.cend(), [&](const auto &query_voxel) {
         auto search = map_.find(query_voxel);
         if (search != map_.end()) {
             const auto &points = search.value();
             const Eigen::Vector4d &neighbor = *std::min_element(
                 // TODO: Introduce intensity
-                points.cbegin(), points.cend(), [&](const auto &lhs, const auto &rhs) {
-                    return (lhs - query).norm() < (rhs - query).norm();
+                points.cbegin(), points.cend(), [&](const Eigen::Vector4d &lhs, const Eigen::Vector4d &rhs) {
+                    return (lhs - query).head<3>().norm() < (rhs - query).head<3>().norm();
                 });
-            double distance = (neighbor - query).norm();
+            double distance = (neighbor - query).head<3>().norm();
             if (distance < closest_distance) {
                 closest_neighbor = neighbor;
                 closest_distance = distance;
@@ -96,7 +97,6 @@ void VoxelHashMap::Update(const std::vector<Eigen::Vector4d> &points, const Soph
     std::vector<Eigen::Vector4d> points_transformed(points.size());
     std::transform(points.cbegin(), points.cend(), points_transformed.begin(),
                    [&](const Eigen::Vector4d &point) { 
-                    // TODO: Verify this does what we want
                         Eigen::Vector4d out = point;
                         out.head<3>() = pose * point.head<3>();
                         return out; 
@@ -107,15 +107,15 @@ void VoxelHashMap::Update(const std::vector<Eigen::Vector4d> &points, const Soph
 
 void VoxelHashMap::AddPoints(const std::vector<Eigen::Vector4d> &points) {
     const double map_resolution = std::sqrt(voxel_size_ * voxel_size_ / max_points_per_voxel_);
-    std::for_each(points.cbegin(), points.cend(), [&](const auto &point) {
+    std::for_each(points.cbegin(), points.cend(), [&](const Eigen::Vector4d &point) {
         const auto voxel = PointToVoxel(point, voxel_size_);
         auto search = map_.find(voxel);
         if (search != map_.end()) {
             auto &voxel_points = search.value();
             if (voxel_points.size() == max_points_per_voxel_ ||
                 std::any_of(voxel_points.cbegin(), voxel_points.cend(),
-                            [&](const auto &voxel_point) {
-                                return (voxel_point - point).norm() < map_resolution;
+                            [&](const Eigen::Vector4d &voxel_point) {
+                                return (voxel_point - point).head<3>().norm() < map_resolution;
                             })) {
                 return;
             }
