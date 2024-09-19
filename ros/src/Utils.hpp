@@ -228,7 +228,12 @@ inline std::unique_ptr<PointCloud2> EigenToPointCloud2(const std::vector<Eigen::
     std::vector<Eigen::Vector4d> points_t;
     points_t.resize(points.size());
     std::transform(points.cbegin(), points.cend(), points_t.begin(),
-                   [&](const auto &point) { return T * point; });
+                [&](const Eigen::Vector4d &point) { 
+                    Eigen::Vector4d out = point;
+                    out.head<3>() = T * point.head<3>();
+                    return out; 
+                }
+    );
     return EigenToPointCloud2(points_t, header);
 }
 
