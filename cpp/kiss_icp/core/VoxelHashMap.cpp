@@ -53,6 +53,15 @@ std::tuple<Eigen::Vector4d, double> VoxelHashMap::GetClosestNeighbor(
     const auto &voxel = PointToVoxel(query, voxel_size_);
     // Get nearby voxels on the map
     const auto &query_voxels = GetAdjacentVoxels(voxel);
+
+    // Define metric
+    const auto metric = [](const Eigen::Vector4d &lhs, const Eigen::Vector4d &rhs) {
+        auto intensity_diff = abs(lhs.w() - rhs.w());
+        if(intensity_diff < 1e-3) intensity_diff = 1e-3;
+
+        return (lhs - rhs).head<3>().norm() * intensity_diff;
+    };
+
     // Find the nearest neighbor
     Eigen::Vector4d closest_neighbor = Eigen::Vector4d::Zero();
     double closest_distance = std::numeric_limits<double>::max();
@@ -64,7 +73,7 @@ std::tuple<Eigen::Vector4d, double> VoxelHashMap::GetClosestNeighbor(
             const Eigen::Vector4d &neighbor = *std::min_element(
                 // TODO: Introduce intensity
                 points.cbegin(), points.cend(), [&](const Eigen::Vector4d &lhs, const Eigen::Vector4d &rhs) {
-                    return (lhs - query).head<3>().norm() < (rhs - query).head<3>().norm();
+                    return metric(lhs, query) < metric(rhs, query);
                 });
             double distance = (neighbor - query).head<3>().norm();
             if (distance < closest_distance) {

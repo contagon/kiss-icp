@@ -97,10 +97,12 @@ LinearSystem BuildLinearSystem(const Correspondences &correspondences, const dou
     auto compute_jacobian_and_residual = [](const std::pair<Eigen::Vector4d, Eigen::Vector4d> &correspondence) {
         // TODO: Introduce intensity
         const auto &[source, target] = correspondence;
-        const Eigen::Vector3d residual = source.head<3>() - target.head<3>();
+        auto intensity_diff = abs(source.w() - target.w());
+        if(intensity_diff < 1e-3) intensity_diff = 1e-3;
+        const Eigen::Vector3d residual = (source.head<3>() - target.head<3>()) / intensity_diff;
         Eigen::Matrix3_6d J_r;
-        J_r.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity();
-        J_r.block<3, 3>(0, 3) = -1.0 * Sophus::SO3d::hat(source.head<3>());
+        J_r.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity() / intensity_diff;
+        J_r.block<3, 3>(0, 3) = -1.0 * Sophus::SO3d::hat(source.head<3>()) / intensity_diff;
         return std::make_tuple(J_r, residual);
     };
 

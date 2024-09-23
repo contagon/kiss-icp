@@ -151,7 +151,10 @@ void OdometryServer::RegisterFrame(const sensor_msgs::msg::PointCloud2 &msg) {
 void OdometryServer::PublishOdometry(const Sophus::SE3d &kiss_pose,
                                      const std_msgs::msg::Header &header) {
     // If necessary, transform the ego-centric pose to the specified base_link/base_footprint frame
-    const auto cloud_frame_id = header.frame_id;
+    auto cloud_frame_id = header.frame_id;
+    // Remove the leading slash
+    cloud_frame_id.erase(0, std::min(cloud_frame_id.find_first_not_of("/"), cloud_frame_id.size() - 1));
+
     const auto egocentric_estimation = (base_frame_.empty() || base_frame_ == cloud_frame_id);
     const auto moving_frame = egocentric_estimation ? cloud_frame_id : base_frame_;
     const auto pose = [&]() -> Sophus::SE3d {
