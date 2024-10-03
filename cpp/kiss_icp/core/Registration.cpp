@@ -52,12 +52,11 @@ inline double square(double x) { return x * x; }
 
 void TransformPoints(const Sophus::SE3d &T, std::vector<Eigen::Vector4d> &points) {
     std::transform(points.cbegin(), points.cend(), points.begin(),
-                   [&](const Eigen::Vector4d &point) { 
-            Eigen::Vector4d out = point;
-            out.head<3>() = T * point.head<3>();
-            return out; 
-        }
-    );
+                   [&](const Eigen::Vector4d &point) {
+                       Eigen::Vector4d out = point;
+                       out.head<3>() = T * point.head<3>();
+                       return out;
+                   });
 }
 
 Correspondences DataAssociation(const std::vector<Eigen::Vector4d> &points,
@@ -93,18 +92,26 @@ Correspondences DataAssociation(const std::vector<Eigen::Vector4d> &points,
     return correspondences;
 }
 
-LinearSystem BuildLinearSystem(const Correspondences &correspondences, const double kernel_scale) {
-    auto compute_jacobian_and_residual = [](const std::pair<Eigen::Vector4d, Eigen::Vector4d> &correspondence) {
-        // TODO: Introduce intensity
-        const auto &[source, target] = correspondence;
-        auto intensity_diff = abs(source.w() - target.w());
-        if(intensity_diff < 1e-3) intensity_diff = 1e-3;
-        const Eigen::Vector3d residual = (source.head<3>() - target.head<3>()) / intensity_diff;
-        Eigen::Matrix3_6d J_r;
-        J_r.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity() / intensity_diff;
-        J_r.block<3, 3>(0, 3) = -1.0 * Sophus::SO3d::hat(source.head<3>()) / intensity_diff;
-        return std::make_tuple(J_r, residual);
-    };
+LinearSystem BuildLinearSystem(const Correspondences &correspondences,
+                               const double kernel_scale,
+                               bool use_intensity_residual) {
+    auto compute_jacobian_and_residual =
+        [use_intensity_residual](
+            const std::pair<Eigen::Vector4d, Eigen::Vector4d> &correspondence) {
+            const auto &[source, target] = correspondence;
+            double intensity_diff;
+            if (use_intensity_residual) {
+                intensity_diff = abs(source.w() - target.w());
+                if (intensity_diff < 1e-3) intensity_diff = 1e-3;
+            } else {
+                intensity_diff = 1.0;
+            }
+            const Eigen::Vector3d residual = (source.head<3>() - target.head<3>()) / intensity_diff;
+            Eigen::Matrix3_6d J_r;
+            J_r.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity() / intensity_diff;
+            J_r.block<3, 3>(0, 3) = -1.0 * Sophus::SO3d::hat(source.head<3>()) / intensity_diff;
+            return std::make_tuple(J_r, residual);
+        };
 
     auto sum_linear_systems = [](LinearSystem a, const LinearSystem &b) {
         a.first += b.first;
@@ -142,12 +149,16 @@ LinearSystem BuildLinearSystem(const Correspondences &correspondences, const dou
 
 namespace kiss_icp {
 
-Registration::Registration(int max_num_iteration, double convergence_criterion, int max_num_threads)
+Registration::Registration(int max_num_iteration,
+                           double convergence_criterion,
+                           int max_num_threads,
+                           bool use_intensity_residual)
     : max_num_iterations_(max_num_iteration),
       convergence_criterion_(convergence_criterion),
       // Only manipulate the number of threads if the user specifies something greater than 0
       max_num_threads_(max_num_threads > 0 ? max_num_threads
-                                           : tbb::this_task_arena::max_concurrency()) {
+                                           : tbb::this_task_arena::max_concurrency()),
+      use_intensity_residual_(use_intensity_residual) {
     // This global variable requires static duration storage to be able to manipulate the max
     // concurrency from TBB across the entire class
     static const auto tbb_control_settings = tbb::global_control(
@@ -171,7 +182,8 @@ Sophus::SE3d Registration::AlignPointsToMap(const std::vector<Eigen::Vector4d> &
         // Equation (10)
         const auto correspondences = DataAssociation(source, voxel_map, max_distance);
         // Equation (11)
-        const auto &[JTJ, JTr] = BuildLinearSystem(correspondences, kernel_scale);
+        const auto &[JTJ, JTr] =
+            BuildLinearSystem(correspondences, kernel_scale, use_intensity_residual_);
         const Eigen::Vector6d dx = JTJ.ldlt().solve(-JTr);
         const Sophus::SE3d estimation = Sophus::SE3d::exp(dx);
         // Equation (12)

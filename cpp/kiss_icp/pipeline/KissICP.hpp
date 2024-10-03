@@ -50,6 +50,10 @@ struct KISSConfig {
 
     // Motion compensation
     bool deskew = false;
+
+    // Intensity params
+    bool use_intensity_metric = false;
+    bool use_intensity_residual = false;
 };
 
 class KissICP {
@@ -60,9 +64,14 @@ public:
 public:
     explicit KissICP(const KISSConfig &config)
         : config_(config),
-          registration_(
-              config.max_num_iterations, config.convergence_criterion, config.max_num_threads),
-          local_map_(config.voxel_size, config.max_range, config.max_points_per_voxel),
+          registration_(config.max_num_iterations,
+                        config.convergence_criterion,
+                        config.max_num_threads,
+                        config.use_intensity_residual),
+          local_map_(config.voxel_size,
+                     config.max_range,
+                     config.max_points_per_voxel,
+                     config.use_intensity_metric),
           adaptive_threshold_(config.initial_threshold, config.min_motion_th, config.max_range) {}
 
 public:

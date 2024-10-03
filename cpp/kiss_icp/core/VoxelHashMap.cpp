@@ -55,9 +55,16 @@ std::tuple<Eigen::Vector4d, double> VoxelHashMap::GetClosestNeighbor(
     const auto &query_voxels = GetAdjacentVoxels(voxel);
 
     // Define metric
-    const auto metric = [](const Eigen::Vector4d &lhs, const Eigen::Vector4d &rhs) {
-        auto intensity_diff = abs(lhs.w() - rhs.w());
-        if(intensity_diff < 1e-3) intensity_diff = 1e-3;
+    bool use_intensity_metric = this->use_intensity_metric_;
+    const auto metric = [&use_intensity_metric](const Eigen::Vector4d &lhs,
+                                                const Eigen::Vector4d &rhs) {
+        double intensity_diff;
+        if (use_intensity_metric) {
+            intensity_diff = abs(lhs.w() - rhs.w());
+            if (intensity_diff < 1e-3) intensity_diff = 1e-3;
+        } else {
+            intensity_diff = 1.0;
+        }
 
         return (lhs - rhs).head<3>().norm() * intensity_diff;
     };
@@ -65,16 +72,15 @@ std::tuple<Eigen::Vector4d, double> VoxelHashMap::GetClosestNeighbor(
     // Find the nearest neighbor
     Eigen::Vector4d closest_neighbor = Eigen::Vector4d::Zero();
     double closest_distance = std::numeric_limits<double>::max();
-    // TODO: Is there going to be some problems with for_each with a shared variable?
     std::for_each(query_voxels.cbegin(), query_voxels.cend(), [&](const auto &query_voxel) {
         auto search = map_.find(query_voxel);
         if (search != map_.end()) {
             const auto &points = search.value();
-            const Eigen::Vector4d &neighbor = *std::min_element(
-                // TODO: Introduce intensity
-                points.cbegin(), points.cend(), [&](const Eigen::Vector4d &lhs, const Eigen::Vector4d &rhs) {
-                    return metric(lhs, query) < metric(rhs, query);
-                });
+            const Eigen::Vector4d &neighbor =
+                *std::min_element(points.cbegin(), points.cend(),
+                                  [&](const Eigen::Vector4d &lhs, const Eigen::Vector4d &rhs) {
+                                      return metric(lhs, query) < metric(rhs, query);
+                                  });
             double distance = (neighbor - query).head<3>().norm();
             if (distance < closest_distance) {
                 closest_neighbor = neighbor;
@@ -105,11 +111,11 @@ void VoxelHashMap::Update(const std::vector<Eigen::Vector4d> &points,
 void VoxelHashMap::Update(const std::vector<Eigen::Vector4d> &points, const Sophus::SE3d &pose) {
     std::vector<Eigen::Vector4d> points_transformed(points.size());
     std::transform(points.cbegin(), points.cend(), points_transformed.begin(),
-                   [&](const Eigen::Vector4d &point) { 
-                        Eigen::Vector4d out = point;
-                        out.head<3>() = pose * point.head<3>();
-                        return out; 
-                    });
+                   [&](const Eigen::Vector4d &point) {
+                       Eigen::Vector4d out = point;
+                       out.head<3>() = pose * point.head<3>();
+                       return out;
+                   });
     const Eigen::Vector3d &origin = pose.translation();
     Update(points_transformed, origin);
 }
