@@ -47,8 +47,8 @@ std::vector<Voxel> GetAdjacentVoxels(const Voxel &voxel, int adjacent_voxels = 1
 
 namespace kiss_icp {
 
-std::tuple<Eigen::Vector4d, double> VoxelHashMap::GetClosestNeighbor(
-    const Eigen::Vector4d &query) const {
+std::tuple<Eigen::Vector4d, double> VoxelHashMap::GetClosestNeighbor(const Eigen::Vector4d &query,
+                                                                     double max_distance) const {
     // Convert the point to voxel coordinates
     const auto &voxel = PointToVoxel(query, voxel_size_);
     // Get nearby voxels on the map
@@ -56,8 +56,8 @@ std::tuple<Eigen::Vector4d, double> VoxelHashMap::GetClosestNeighbor(
 
     // Define metric
     bool use_intensity_metric = this->use_intensity_metric_;
-    const auto metric = [&use_intensity_metric](const Eigen::Vector4d &lhs,
-                                                const Eigen::Vector4d &rhs) {
+    const auto metric = [&use_intensity_metric, &max_distance](const Eigen::Vector4d &lhs,
+                                                               const Eigen::Vector4d &rhs) {
         double intensity_diff;
         if (use_intensity_metric) {
             intensity_diff = abs(lhs.w() - rhs.w());
@@ -66,7 +66,13 @@ std::tuple<Eigen::Vector4d, double> VoxelHashMap::GetClosestNeighbor(
             intensity_diff = 1.0;
         }
 
-        return (lhs - rhs).head<3>().norm() * intensity_diff;
+        double euclidean_dist = (lhs - rhs).head<3>().norm();
+        // If we're outside the max distance in euclidean norm, return a very large number
+        if (euclidean_dist > max_distance) {
+            return std::numeric_limits<double>::max();
+        } else {
+            return euclidean_dist * intensity_diff;
+        }
     };
 
     // Find the nearest neighbor
@@ -81,13 +87,15 @@ std::tuple<Eigen::Vector4d, double> VoxelHashMap::GetClosestNeighbor(
                                   [&](const Eigen::Vector4d &lhs, const Eigen::Vector4d &rhs) {
                                       return metric(lhs, query) < metric(rhs, query);
                                   });
-            double distance = (neighbor - query).head<3>().norm();
+
+            double distance = metric(neighbor, query);
             if (distance < closest_distance) {
                 closest_neighbor = neighbor;
                 closest_distance = distance;
             }
         }
     });
+
     return std::make_tuple(closest_neighbor, closest_distance);
 }
 

@@ -74,7 +74,8 @@ Correspondences DataAssociation(const std::vector<Eigen::Vector4d> &points,
         [&](const tbb::blocked_range<points_iterator> &r, Correspondences res) -> Correspondences {
             res.reserve(r.size());
             std::for_each(r.begin(), r.end(), [&](const auto &point) {
-                const auto &[closest_neighbor, distance] = voxel_map.GetClosestNeighbor(point);
+                const auto &[closest_neighbor, distance] =
+                    voxel_map.GetClosestNeighbor(point, max_correspondence_distance);
                 if (distance < max_correspondence_distance) {
                     res.emplace_back(point, closest_neighbor);
                 }
