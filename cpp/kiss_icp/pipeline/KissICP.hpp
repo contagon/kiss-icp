@@ -52,8 +52,8 @@ struct KISSConfig {
     bool deskew = false;
 
     // Intensity params
-    bool use_intensity_metric = false;
-    bool use_intensity_residual = false;
+    int intensity_metric = 0;
+    int intensity_residual = 0;
 };
 
 class KissICP {
@@ -67,11 +67,11 @@ public:
           registration_(config.max_num_iterations,
                         config.convergence_criterion,
                         config.max_num_threads,
-                        config.use_intensity_residual),
+                        config.intensity_residual),
           local_map_(config.voxel_size,
                      config.max_range,
                      config.max_points_per_voxel,
-                     config.use_intensity_metric),
+                     config.intensity_metric),
           adaptive_threshold_(config.initial_threshold, config.min_motion_th, config.max_range) {}
 
 public:
