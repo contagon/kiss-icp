@@ -95,17 +95,21 @@ Correspondences DataAssociation(const std::vector<Eigen::Vector4d> &points,
 
 LinearSystem BuildLinearSystem(const Correspondences &correspondences,
                                const double kernel_scale,
-                               bool use_intensity_residual) {
+                               int intensity_residual) {
     auto compute_jacobian_and_residual =
-        [use_intensity_residual](
-            const std::pair<Eigen::Vector4d, Eigen::Vector4d> &correspondence) {
+        [intensity_residual](const std::pair<Eigen::Vector4d, Eigen::Vector4d> &correspondence) {
             const auto &[source, target] = correspondence;
             double intensity_diff;
-            if (use_intensity_residual) {
+            if (intensity_residual == 0) {
+                intensity_diff = 1.0;
+            } else if (intensity_residual == 1) {
+                intensity_diff = sqrt(abs(source.w() - target.w()));
+                if (intensity_diff < 1e-3) intensity_diff = 1e-3;
+            } else if (intensity_residual == 2) {
                 intensity_diff = abs(source.w() - target.w());
                 if (intensity_diff < 1e-3) intensity_diff = 1e-3;
             } else {
-                intensity_diff = 1.0;
+                throw std::invalid_argument("Invalid intensity metric");
             }
             const Eigen::Vector3d residual = (source.head<3>() - target.head<3>()) / intensity_diff;
             Eigen::Matrix3_6d J_r;
@@ -153,13 +157,13 @@ namespace kiss_icp {
 Registration::Registration(int max_num_iteration,
                            double convergence_criterion,
                            int max_num_threads,
-                           bool use_intensity_residual)
+                           int intensity_residual)
     : max_num_iterations_(max_num_iteration),
       convergence_criterion_(convergence_criterion),
       // Only manipulate the number of threads if the user specifies something greater than 0
       max_num_threads_(max_num_threads > 0 ? max_num_threads
                                            : tbb::this_task_arena::max_concurrency()),
-      use_intensity_residual_(use_intensity_residual) {
+      intensity_residual_(intensity_residual) {
     // This global variable requires static duration storage to be able to manipulate the max
     // concurrency from TBB across the entire class
     static const auto tbb_control_settings = tbb::global_control(
@@ -184,7 +188,7 @@ Sophus::SE3d Registration::AlignPointsToMap(const std::vector<Eigen::Vector4d> &
         const auto correspondences = DataAssociation(source, voxel_map, max_distance);
         // Equation (11)
         const auto &[JTJ, JTr] =
-            BuildLinearSystem(correspondences, kernel_scale, use_intensity_residual_);
+            BuildLinearSystem(correspondences, kernel_scale, intensity_residual_);
         const Eigen::Vector6d dx = JTJ.ldlt().solve(-JTr);
         const Sophus::SE3d estimation = Sophus::SE3d::exp(dx);
         // Equation (12)
