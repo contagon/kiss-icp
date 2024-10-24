@@ -36,7 +36,6 @@
 #include <tuple>
 
 #include "VoxelHashMap.hpp"
-#include "VoxelUtils.hpp"
 
 namespace Eigen {
 using Matrix6d = Eigen::Matrix<double, 6, 6>;
@@ -100,7 +99,15 @@ LinearSystem BuildLinearSystem(const Correspondences &correspondences,
         [intensity_residual](const std::pair<Eigen::Vector4d, Eigen::Vector4d> &correspondence) {
             const auto &[source, target] = correspondence;
             double intensity_diff;
-            if (intensity_residual == 0) {
+            if (intensity_residual == -2) {
+                intensity_diff = abs(source.w() - target.w());
+                if (intensity_diff < 1e-3) intensity_diff = 1e-3;
+                intensity_diff = 1.0 / intensity_diff;
+            } else if (intensity_residual == -1) {
+                intensity_diff = sqrt(abs(source.w() - target.w()));
+                if (intensity_diff < 1e-3) intensity_diff = 1e-3;
+                intensity_diff = 1.0 / intensity_diff;
+            } else if (intensity_residual == 0) {
                 intensity_diff = 1.0;
             } else if (intensity_residual == 1) {
                 intensity_diff = sqrt(abs(source.w() - target.w()));
@@ -111,10 +118,11 @@ LinearSystem BuildLinearSystem(const Correspondences &correspondences,
             } else {
                 throw std::invalid_argument("Invalid intensity metric");
             }
-            const Eigen::Vector3d residual = (source.head<3>() - target.head<3>()) / intensity_diff;
+
+            const Eigen::Vector3d residual = (source.head<3>() - target.head<3>()) * intensity_diff;
             Eigen::Matrix3_6d J_r;
-            J_r.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity() / intensity_diff;
-            J_r.block<3, 3>(0, 3) = -1.0 * Sophus::SO3d::hat(source.head<3>()) / intensity_diff;
+            J_r.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity() * intensity_diff;
+            J_r.block<3, 3>(0, 3) = -1.0 * Sophus::SO3d::hat(source.head<3>()) * intensity_diff;
             return std::make_tuple(J_r, residual);
         };
 
