@@ -55,36 +55,18 @@ std::tuple<Eigen::Vector4d, double> VoxelHashMap::GetClosestNeighbor(const Eigen
     const auto &query_voxels = GetAdjacentVoxels(voxel);
 
     // Define metric
-    int intensity_metric = this->intensity_metric_;
-    const auto metric = [&intensity_metric, &max_distance](const Eigen::Vector4d &lhs,
+    std::function<double(double, double)> intensity_metric(this->intensity_metric_);
+    const auto metric = [&max_distance, &intensity_metric](const Eigen::Vector4d &lhs,
                                                            const Eigen::Vector4d &rhs) {
-        double intensity_diff;
-        if (intensity_metric == -2) {
-            intensity_diff = abs(lhs.w() - rhs.w());
-            if (intensity_diff < 1e-3) intensity_diff = 1e-3;
-            intensity_diff = 1.0 / intensity_diff;
-        } else if (intensity_metric == -1) {
-            intensity_diff = sqrt(abs(lhs.w() - rhs.w()));
-            if (intensity_diff < 1e-3) intensity_diff = 1e-3;
-            intensity_diff = 1.0 / intensity_diff;
-        } else if (intensity_metric == 0) {
-            intensity_diff = 1.0;
-        } else if (intensity_metric == 1) {
-            intensity_diff = sqrt(abs(lhs.w() - rhs.w()));
-            if (intensity_diff < 1e-3) intensity_diff = 1e-3;
-        } else if (intensity_metric == 2) {
-            intensity_diff = abs(lhs.w() - rhs.w());
-            if (intensity_diff < 1e-3) intensity_diff = 1e-3;
-        } else {
-            throw std::invalid_argument("Invalid intensity metric");
-        }
+        double intensity_diff = abs(lhs.w() - rhs.w());
+        double coord_diff = (lhs - rhs).head<3>().norm();
+        double scale = intensity_metric(coord_diff, intensity_diff);
 
-        double euclidean_dist = (lhs - rhs).head<3>().norm();
         // If we're outside the max distance in euclidean norm, return a very large number
-        if (euclidean_dist > max_distance) {
+        if (coord_diff > max_distance) {
             return std::numeric_limits<double>::max();
         } else {
-            return euclidean_dist * intensity_diff;
+            return coord_diff * scale;
         }
     };
 

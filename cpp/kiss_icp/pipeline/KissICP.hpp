@@ -52,8 +52,8 @@ struct KISSConfig {
     bool deskew = false;
 
     // Intensity params
-    int intensity_metric = 0;
-    int intensity_residual = 0;
+    std::function<double(double, double)> intensity_metric = 0;
+    std::function<double(double, double)> intensity_residual = 0;
 };
 
 class KissICP {

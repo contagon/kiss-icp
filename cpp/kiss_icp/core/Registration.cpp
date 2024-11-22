@@ -75,7 +75,7 @@ Correspondences DataAssociation(const std::vector<Eigen::Vector4d> &points,
             std::for_each(r.begin(), r.end(), [&](const auto &point) {
                 const auto &[closest_neighbor, distance] =
                     voxel_map.GetClosestNeighbor(point, max_correspondence_distance);
-                if (distance < max_correspondence_distance) {
+                if (distance < std::numeric_limits<double>::max()) {
                     res.emplace_back(point, closest_neighbor);
                 }
             });
@@ -94,35 +94,18 @@ Correspondences DataAssociation(const std::vector<Eigen::Vector4d> &points,
 
 LinearSystem BuildLinearSystem(const Correspondences &correspondences,
                                const double kernel_scale,
-                               int intensity_residual) {
+                               std::function<double(double, double)> intensity_residual) {
     auto compute_jacobian_and_residual =
         [intensity_residual](const std::pair<Eigen::Vector4d, Eigen::Vector4d> &correspondence) {
             const auto &[source, target] = correspondence;
-            double intensity_diff;
-            if (intensity_residual == -2) {
-                intensity_diff = abs(source.w() - target.w());
-                if (intensity_diff < 1e-3) intensity_diff = 1e-3;
-                intensity_diff = 1.0 / intensity_diff;
-            } else if (intensity_residual == -1) {
-                intensity_diff = sqrt(abs(source.w() - target.w()));
-                if (intensity_diff < 1e-3) intensity_diff = 1e-3;
-                intensity_diff = 1.0 / intensity_diff;
-            } else if (intensity_residual == 0) {
-                intensity_diff = 1.0;
-            } else if (intensity_residual == 1) {
-                intensity_diff = sqrt(abs(source.w() - target.w()));
-                if (intensity_diff < 1e-3) intensity_diff = 1e-3;
-            } else if (intensity_residual == 2) {
-                intensity_diff = abs(source.w() - target.w());
-                if (intensity_diff < 1e-3) intensity_diff = 1e-3;
-            } else {
-                throw std::invalid_argument("Invalid intensity metric");
-            }
+            double intensity_diff = abs(source.w() - target.w());
+            double coord_diff = (source.head<3>() - target.head<3>()).norm();
+            double scale = intensity_residual(coord_diff, intensity_diff);
 
-            const Eigen::Vector3d residual = (source.head<3>() - target.head<3>()) * intensity_diff;
+            const Eigen::Vector3d residual = (source.head<3>() - target.head<3>()) * scale;
             Eigen::Matrix3_6d J_r;
-            J_r.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity() * intensity_diff;
-            J_r.block<3, 3>(0, 3) = -1.0 * Sophus::SO3d::hat(source.head<3>()) * intensity_diff;
+            J_r.block<3, 3>(0, 0) = Eigen::Matrix3d::Identity() * scale;
+            J_r.block<3, 3>(0, 3) = -1.0 * Sophus::SO3d::hat(source.head<3>()) * scale;
             return std::make_tuple(J_r, residual);
         };
 
@@ -165,7 +148,7 @@ namespace kiss_icp {
 Registration::Registration(int max_num_iteration,
                            double convergence_criterion,
                            int max_num_threads,
-                           int intensity_residual)
+                           std::function<double(double, double)> intensity_residual)
     : max_num_iterations_(max_num_iteration),
       convergence_criterion_(convergence_criterion),
       // Only manipulate the number of threads if the user specifies something greater than 0

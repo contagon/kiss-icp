@@ -39,7 +39,7 @@ struct VoxelHashMap {
     explicit VoxelHashMap(double voxel_size,
                           double max_distance,
                           unsigned int max_points_per_voxel,
-                          int intensity_metric)
+                          std::function<double(double, double)> intensity_metric)
         : voxel_size_(voxel_size),
           max_distance_(max_distance),
           max_points_per_voxel_(max_points_per_voxel),
@@ -58,7 +58,7 @@ struct VoxelHashMap {
     double voxel_size_;
     double max_distance_;
     unsigned int max_points_per_voxel_;
-    int intensity_metric_;
+    std::function<double(double, double)> intensity_metric_;
     tsl::robin_map<Voxel, std::vector<Eigen::Vector4d>> map_;
 };
 }  // namespace kiss_icp
